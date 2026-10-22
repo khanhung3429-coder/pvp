@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Đại Chiến Pháp Sư Bựa</title>
+<style>
+:root{color-scheme:dark;--bg:#14102b;--arena:#1d2145;--ink:#fff6e0;--red:#ff5a4f;--blue:#4fa3ff;--gold:#ffc94a;--cyan:#2fe0d0;--ui:rgba(255,255,255,.16);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;overflow:hidden;touch-action:none}
+body{display:flex;align-items:center;justify-content:center}
+#game{position:relative;width:min(100vw,calc(100vh * 16 / 9));aspect-ratio:16/9;background:var(--arena);overflow:hidden;border-radius:10px}
+canvas{width:100%;height:100%;display:block}
+.controls{position:absolute;left:0;right:0;bottom:3%;display:flex;justify-content:space-between;align-items:flex-end;padding:0 4%;pointer-events:none}
+.joy{width:min(26vh,16vw);height:min(26vh,16vw);min-width:96px;min-height:96px;background:var(--ui);border:2px solid rgba(255,255,255,.3);border-radius:50%;position:relative;pointer-events:auto;touch-action:none}
+.stick{position:absolute;width:42%;height:42%;left:29%;top:29%;background:var(--red);border-radius:50%;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.btns{display:flex;gap:14px;pointer-events:auto}
+.btn{width:min(17vh,11vw);height:min(17vh,11vw);min-width:68px;min-height:68px;border-radius:50%;border:none;font:800 15px "Trebuchet MS",Verdana,sans-serif;color:#1a1033;box-shadow:0 5px 0 rgba(0,0,0,.35);touch-action:none;position:relative;overflow:hidden}
+.btn.slap{background:var(--gold)}
+.btn.skill{background:var(--cyan)}
+.btn.down{transform:translateY(4px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn i{position:absolute;left:0;right:0;bottom:0;background:rgba(10,5,30,.55);height:0;pointer-events:none}
+#menu,#lobby,#wait{position:absolute;inset:0;background:rgba(14,9,36,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:10;text-align:center;padding:16px}
+#menu h1,#lobby h1,#wait h1{margin:0;font-size:clamp(22px,5.4vw,44px);letter-spacing:.5px;text-shadow:0 4px 0 #6b2bd9}
+#menu p,#lobby p,#wait p{margin:0;max-width:520px;font-size:clamp(12px,2.2vw,16px);line-height:1.5;opacity:.9}
+.go{margin-top:6px;padding:12px 34px;font:800 clamp(15px,2.6vw,20px) "Trebuchet MS",Verdana,sans-serif;background:var(--red);color:#fff;border:none;border-radius:999px;box-shadow:0 5px 0 #a02a24;cursor:pointer}
+.go:active{transform:translateY(4px);box-shadow:none}
+.go.alt{background:#5b46d6;box-shadow:0 5px 0 #34278f}.go.alt:active{box-shadow:none}.go:disabled{opacity:.45}
+.row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+#codeIn{width:120px;padding:11px 10px;border-radius:999px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:var(--ink);font:800 20px "Trebuchet MS",Verdana,sans-serif;text-align:center;text-transform:uppercase;letter-spacing:4px;user-select:text;-webkit-user-select:text}
+.msg{min-height:1.4em;color:var(--gold)}
+#rot{display:none;position:fixed;inset:0;background:var(--bg);z-index:20;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:18px}
+@media (orientation:portrait) and (max-width:700px){#rot{display:flex}}
+</style>
+</head>
+<body>
+<div id="rot">Xoay ngang điện thoại để chơi nhé 📱↔️</div>
+<div id="game">
+  <canvas id="cv" width="800" height="450"></canvas>
+  <div class="controls">
+    <div class="joy" id="joy"><div class="stick" id="stick"></div></div>
+    <div class="btns">
+      <button class="btn slap" id="bSlap">VẢ</button>
+      <button class="btn skill" id="bSkill">SKILL<i id="cdFill"></i></button>
+    </div>
+  </div>
+  <div id="lobby">
+    <h1>🧙‍♂️ PHÁP SƯ BỰA 💥</h1>
+    <p>Kéo cần tròn để đi, VẢ để tát, SKILL để bắn cầu lửa. Máy tính: WASD hoặc mũi tên, J là vả, K là skill.</p>
+    <div class="row"><button class="go" id="lbBot">🤖 CHƠI VỚI BOT</button><button class="go alt" id="lbCreate">🏠 TẠO PHÒNG</button></div>
+    <div class="row"><input id="codeIn" maxlength="4" placeholder="MÃ" autocomplete="off"><button class="go alt" id="lbJoin">VÀO PHÒNG</button></div>
+    <p class="msg" id="lbMsg"></p>
+  </div>
+  <div id="wait" style="display:none">
+    <h1 id="wTitle">PHÒNG</h1>
+    <p id="wInfo"></p>
+    <div class="row"><button class="go" id="wReady">SẴN SÀNG</button><button class="go alt" id="wLeave">RỜI PHÒNG</button></div>
+  </div>
+  <div id="menu" style="display:none">
+    <h1 id="mTitle">🧙‍♂️ PHÁP SƯ BỰA 💥</h1>
+    <p id="mText">Kéo cần tròn để di chuyển. VẢ để tát thằng pháp sư xanh, SKILL để bắn cầu lửa. Máy tính: WASD hoặc phím mũi tên để đi, J là vả, K là skill.</p>
+    <div class="row"><button class="go" id="goBtn">CHƠI NGAY!</button><button class="go alt" id="menuLobby">VỀ SẢNH</button></div>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const W = 800, H = 450;            // khung nhìn
+const WW = 2000, WH = 1200;        // kích thước bản đồ thật
+const cam = { x: 0, y: 0 };
+function camGoal() { return [Math.max(0, Math.min(WW - W, P.x - W / 2)), Math.max(0, Math.min(WH - (H - 50), P.y - 200))]; }
+let mode = 'bot', state = 'lobby', last = 0, shake = 0, level = 1, wins = 0, losses = 0, time = 0;
+let P, B, fireballs = [], parts = [], floats = [];
+const input = { x: 0, y: 0, slap: false, skill: false };
+const keys = {};
+
+/* ---------- Âm thanh ---------- */
+let ac = null;
+function beep(f, d, type, vol) {
+  try {
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'square'; o.frequency.setValueAtTime(f, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(Math.max(40, f * 0.4), ac.currentTime + d);
+    g.gain.setValueAtTime(vol || 0.08, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + d);
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
+  } catch (e) {}
+}
+
+/* ---------- Nhân vật ---------- */
+function mk(x, y, color, hat, bot) {
+  return { x, y, kx: 0, ky: 0, hp: 100, color, hat, bot, fx: bot ? -1 : 1, fy: 0,
+           slapCd: 0, skillCd: 0, swing: 0, flash: 0, think: 0, mx: 0, my: 0 };
+}
+const SLAP_CD = 0.45, SKILL_CD = 2.2;
+
+function reset() {
+  P = mk(300, WH / 2, '#ff5a4f', '#b3261e', false);
+  B = mk(WW - 300, WH / 2, '#4fa3ff', '#1c5fb8', true);
+  B.fx = -1;
+  fireballs = []; parts = []; floats = []; efb = [];
+  const g = camGoal(); cam.x = g[0]; cam.y = g[1];
+}
+
+/* ---------- Chiến đấu ---------- */
+const SLAP_WORDS = ['BỐP!', 'CHÁT!', 'BỘP!', 'ÚI DA!', 'VẢ NÈ!'];
+const FIRE_WORDS = ['BÙM!', 'CHÁY!', 'NÓNG!', 'KHÉT LẸT!'];
+function say(x, y, t, c) { floats.push({ x, y, t, c, life: 0.9 }); }
+function burst(x, y, c, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.283, s = 80 + Math.random() * 220;
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.4 + Math.random() * 0.4, c });
+  }
+}
+function hit(t, dmg, dx, dy, kb, word, color) {
+  t.hp = Math.max(0, t.hp - dmg);
+  t.kx = dx * kb; t.ky = dy * kb; t.flash = 0.15;
+  shake = Math.max(shake, 9);
+  say(t.x, t.y - 50, word, color);
+  burst(t.x, t.y, color, 12);
+  beep(t === P ? 160 : 240, 0.18, 'sawtooth', 0.1);
+  if (t === P && navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
+}
+function norm(dx, dy) { const d = Math.hypot(dx, dy) || 1; return [dx / d, dy / d, d]; }
+
+function slap(a, b) {
+  if (a.slapCd > 0) return;
+  a.slapCd = SLAP_CD; a.swing = 0.18;
+  beep(500, 0.08, 'triangle', 0.06);
+  const [nx, ny, d] = norm(b.x - a.x, b.y - a.y);
+  if (mode === 'online') { if (a === P) net.slapN++; }
+  else if (d < 78) hit(b, 8, nx, ny, 420, SLAP_WORDS[Math.random() * SLAP_WORDS.length | 0], '#ffc94a');
+}
+function cast(a) {
+  if (a.skillCd > 0) return;
+  a.skillCd = SKILL_CD;
+  const [nx, ny] = norm(a.fx, a.fy);
+  fireballs.push({ id: ++fbId, x: a.x + nx * 30, y: a.y + ny * 30, vx: nx * 380, vy: ny * 380, owner: a, life: 2.5 });
+  beep(700, 0.25, 'sawtooth', 0.07);
+}
+
+/* ---------- Cập nhật ---------- */
+function stepActor(a, mx, my, speed, dt) {
+  if (mx || my) { const [nx, ny] = norm(mx, my); a.fx = nx; a.fy = ny; }
+  a.x += (mx * speed + a.kx) * dt;
+  a.y += (my * speed + a.ky) * dt;
+  const k = Math.exp(-dt * 8); a.kx *= k; a.ky *= k;
+  a.x = Math.max(28, Math.min(WW - 28, a.x));
+  a.y = Math.max(40, Math.min(WH - 28, a.y));
+  a.slapCd -= dt; a.skillCd -= dt; a.swing -= dt; a.flash -= dt;
+}
+
+function botAI(dt) {
+  const [nx, ny, d] = norm(P.x - B.x, P.y - B.y);
+  B.think -= dt;
+  if (B.think <= 0) {
+    B.think = 0.25 + Math.random() * 0.35;
+    const strafe = (Math.random() < 0.5 ? 1 : -1) * 0.7;
+    if (d > 70) { B.mx = nx - ny * strafe * 0.4; B.my = ny + nx * strafe * 0.4; }
+    else if (Math.random() < 0.3) { B.mx = -nx; B.my = -ny; }
+    else { B.mx = 0; B.my = 0; }
+  }
+  const s = 120 + level * 18;
+  stepActor(B, B.mx, B.my, s, dt);
+  if (!B.mx && !B.my) { B.fx = nx; B.fy = ny; }
+  if (d < 70 && Math.random() < 0.03 + level * 0.008) slap(B, P);
+  if (d > 130 && d < 650 && B.skillCd <= 0 && Math.random() < 0.012 + level * 0.004) {
+    B.fx = nx; B.fy = ny; cast(B);
+  }
+}
+
+function update(dt) {
+  time += dt;
+  let mx = input.x, my = input.y;
+  if (keys.a || keys.arrowleft) mx -= 1;
+  if (keys.d || keys.arrowright) mx += 1;
+  if (keys.w || keys.arrowup) my -= 1;
+  if (keys.s || keys.arrowdown) my += 1;
+  const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
+  stepActor(P, mx, my, 240, dt);
+  if (input.slap) { slap(P, B); input.slap = false; }
+  if (input.skill) { cast(P); input.skill = false; }
+  if (mode === 'bot') botAI(dt); else netStep(dt);
+
+  for (const f of fireballs) {
+    f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt;
+    const t = f.owner === P ? B : P;
+    if (mode === 'bot' && Math.hypot(t.x - f.x, t.y - f.y) < 30) {
+      const [nx, ny] = norm(f.vx, f.vy);
+      hit(t, 18, nx, ny, 560, FIRE_WORDS[Math.random() * FIRE_WORDS.length | 0], '#ff8a3d');
+      burst(f.x, f.y, '#ffd36b', 22);
+      f.life = 0;
+    }
+    if (f.x < 0 || f.x > WW || f.y < 0 || f.y > WH) f.life = 0;
+  }
+  fireballs = fireballs.filter(f => f.life > 0);
+  for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; p.life -= dt; }
+  parts = parts.filter(p => p.life > 0);
+  for (const f of floats) { f.y -= 40 * dt; f.life -= dt; }
+  floats = floats.filter(f => f.life > 0);
+  shake *= Math.exp(-dt * 10);
+
+  document.getElementById('cdFill').style.height = Math.max(0, P.skillCd / SKILL_CD) * 100 + '%';
+
+  if (P.hp <= 0 || B.hp <= 0) finish(B.hp <= 0);
+}
+
+function finish(won) {
+  if (mode === 'online') return onlineOver(won);
+  state = 'over';
+  if (won) { wins++; level++; } else { losses++; level = Math.max(1, level - 1); }
+  document.getElementById('mTitle').textContent = won ? '🏆 BẠN THẮNG!' : '💀 THUA RỒI!';
+  document.getElementById('mText').textContent =
+    (won ? 'Pháp sư xanh bị vả cho tơi tả. ' : 'Bị thằng xanh vả sấp mặt. ') +
+    'Chiến tích: thắng ' + wins + ', thua ' + losses + '. Màn tiếp theo: ' + level + '.';
+  document.getElementById('goBtn').textContent = won ? 'MÀN TIẾP!' : 'ĐÒI NỢ!';
+  document.getElementById('menu').style.display = 'flex';
+  beep(won ? 880 : 120, 0.5, 'triangle', 0.1);
+}
+
+/* ---------- Vẽ ---------- */
+function drawWizard(a) {
+  ctx.save(); ctx.translate(a.x, a.y);
+  if (a.flash > 0) ctx.globalAlpha = 0.55;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0, 26, 24, 8, 0, 0, 7); ctx.fill();
+  const [nx, ny] = norm(a.fx, a.fy);
+  const sw = a.swing > 0 ? Math.sin(a.swing / 0.18 * Math.PI) : 0;
+  const ang = Math.atan2(ny, nx);
+  ctx.strokeStyle = '#7a4a21'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(nx * 14, ny * 14 + 4); ctx.lineTo(nx * 44, ny * 44 + 4); ctx.stroke();
+  ctx.fillStyle = '#ffe27a'; ctx.beginPath(); ctx.arc(nx * 48, ny * 48 + 4, 6, 0, 7); ctx.fill();
+  ctx.fillStyle = a.color; ctx.beginPath(); ctx.arc(0, 4, 22, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f5f1e8';
+  ctx.beginPath(); ctx.moveTo(-14, 10); ctx.lineTo(14, 10); ctx.lineTo(0, 36); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-7 + nx * 3, -2, 5, 0, 7); ctx.arc(7 + nx * 3, -2, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(-7 + nx * 5, -2 + ny * 2, 2.4, 0, 7); ctx.arc(7 + nx * 5, -2 + ny * 2, 2.4, 0, 7); ctx.fill();
+  ctx.fillStyle = a.hat;
+  ctx.beginPath(); ctx.ellipse(0, -14, 30, 7, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-18, -14); ctx.lineTo(4, -58); ctx.lineTo(18, -14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffd34a'; ctx.beginPath(); ctx.arc(4, -40, 3.5, 0, 7); ctx.fill();
+  if (sw > 0) {
+    ctx.strokeStyle = 'rgba(255,230,120,' + sw + ')'; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(0, 4, 52, ang - 0.9, ang + 0.9); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function bar(x, y, w, hp, c, name, align) {
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x, y, w, 16);
+  ctx.fillStyle = c;
+  const fw = w * hp / 100;
+  ctx.fillRect(align === 'r' ? x + w - fw : x, y, fw, 16);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, 16);
+  ctx.fillStyle = '#fff6e0'; ctx.font = '700 13px "Trebuchet MS",Verdana,sans-serif';
+  ctx.textAlign = align === 'r' ? 'right' : 'left';
+  ctx.fillText(name, align === 'r' ? x + w : x, y + 32);
+}
+
+function draw() {
+  const g = camGoal(); cam.x += (g[0] - cam.x) * 0.18; cam.y += (g[1] - cam.y) * 0.18;
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0b0e26'; ctx.fillRect(0, 0, W, H);
+  ctx.beginPath(); ctx.rect(0, 50, W, H - 50); ctx.clip();
+  if (shake > 0.5) ctx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+  ctx.translate(-cam.x, 50 - cam.y);
+  ctx.fillStyle = '#1d2145'; ctx.fillRect(0, 0, WW, WH);
+  ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1;
+  const gx0 = Math.floor(cam.x / 50) * 50, gy0 = Math.floor(cam.y / 50) * 50;
+  for (let x = gx0; x <= Math.min(WW, cam.x + W); x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WH); ctx.stroke(); }
+  for (let y = gy0; y <= Math.min(WH, cam.y + H); y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WW, y); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(WW / 2, WH / 2, 160, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(WW / 2, 0); ctx.lineTo(WW / 2, WH); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,201,74,.55)'; ctx.lineWidth = 8; ctx.strokeRect(0, 0, WW, WH);
+  const list = [P, B].sort((a, b) => a.y - b.y);
+  list.forEach(drawWizard);
+  for (const f of fireballs.concat(efb)) {
+    const g = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, 20);
+    g.addColorStop(0, '#fff7c2'); g.addColorStop(.5, '#ff9f3d'); g.addColorStop(1, 'rgba(255,60,30,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, 20, 0, 7); ctx.fill();
+  }
+  for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 5, 5); }
+  ctx.globalAlpha = 1;
+  for (const f of floats) {
+    ctx.globalAlpha = Math.min(1, f.life * 2);
+    ctx.font = '900 26px "Trebuchet MS",Verdana,sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 5; ctx.strokeStyle = '#1a1033'; ctx.strokeText(f.t, f.x, f.y);
+    ctx.fillStyle = f.c; ctx.fillText(f.t, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // mũi tên chỉ hướng đối thủ khi ở ngoài màn hình
+  const sx = B.x - cam.x, sy = B.y - cam.y + 50;
+  if (sx < 20 || sx > W - 20 || sy < 70 || sy > H - 20) {
+    const cx = W / 2, cy = 50 + (H - 50) / 2, a = Math.atan2(sy - cy, sx - cx);
+    const k = Math.min((W / 2 - 34) / Math.abs(Math.cos(a) || 1e-6), ((H - 50) / 2 - 30) / Math.abs(Math.sin(a) || 1e-6));
+    const ax = cx + Math.cos(a) * k, ay = cy + Math.sin(a) * k;
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(a);
+    ctx.fillStyle = B.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-10, -12); ctx.lineTo(-10, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  // bản đồ nhỏ
+  const mw = 120, mh = Math.round(mw * WH / WW), mx0 = W / 2 - mw / 2, my0 = 56, sc = mw / WW;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(mx0, my0, mw, mh);
+  ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.5; ctx.strokeRect(mx0, my0, mw, mh);
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
+  ctx.strokeRect(mx0 + cam.x * sc, my0 + cam.y * sc, W * sc, (H - 50) * sc);
+  for (const a of [B, P]) { ctx.fillStyle = a.color; ctx.beginPath(); ctx.arc(mx0 + a.x * sc, my0 + a.y * sc, 4, 0, 7); ctx.fill(); }
+
+  ctx.fillStyle = '#10143a'; ctx.fillRect(0, 0, W, 50);
+  bar(16, 8, 300, P.hp, P.color, 'BẠN', 'l');
+  bar(W - 316, 8, 300, B.hp, B.color, mode === 'online' ? 'ĐỐI THỦ' : 'PHÁP SƯ XANH (màn ' + level + ')', 'r');
+}
+
+function loop(t) {
+  const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
+  if (state === 'play') update(dt);
+  if (P) draw();
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Điều khiển ---------- */
+function startGame() {
+  mode = 'bot'; reset(); state = 'play'; show(null);
+  document.getElementById('menu').style.display = 'none';
+  beep(440, 0.15, 'triangle', 0.06);
+}
+document.getElementById('goBtn').addEventListener('click', startGame);
+
+const joy = document.getElementById('joy'), stick = document.getElementById('stick');
+let joyId = null;
+function joyMove(e) {
+  const r = joy.getBoundingClientRect(), R = r.width / 2;
+  let x = e.clientX - (r.left + R), y = e.clientY - (r.top + R);
+  const d = Math.hypot(x, y), lim = R * 0.6;
+  if (d > lim) { x = x / d * lim; y = y / d * lim; }
+  stick.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  input.x = x / lim; input.y = y / lim;
+}
+function joyEnd(e) {
+  if (e.pointerId !== joyId) return;
+  joyId = null; stick.style.transform = ''; input.x = 0; input.y = 0;
+}
+joy.addEventListener('pointerdown', e => { e.preventDefault(); joyId = e.pointerId; joy.setPointerCapture(e.pointerId); joyMove(e); });
+joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e); });
+joy.addEventListener('pointerup', joyEnd);
+joy.addEventListener('pointercancel', joyEnd);
+
+function bindBtn(id, key) {
+  const b = document.getElementById(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); input[key] = true; b.classList.add('down'); });
+  const up = () => b.classList.remove('down');
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+}
+bindBtn('bSlap', 'slap'); bindBtn('bSkill', 'skill');
+
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase(); keys[k] = true;
+  if (k === 'j') input.slap = true;
+  if (k === 'k') input.skill = true;
+  if ((k === 'enter' || k === ' ') && state === 'over' && mode === 'bot') startGame();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+/* ---------- Sảnh và phòng online (qua capability room, đồng bộ bằng presence) ---------- */
+const $ = id => document.getElementById(id);
+let efb = [], fbId = 0, lastSn = 0, seen = new Set(), acks = [], matchNo = 1, code = '', rm = null, rt = null, offPeers = null, oWins = 0, oLoss = 0, resTxt = '';
+const net = { slapN: 0 };
+const msg = t => { $('lbMsg').textContent = t; };
+function show(id) { for (const x of ['lobby', 'wait', 'menu']) $(x).style.display = x === id ? 'flex' : 'none'; }
+function offline() { rt = null; $('lbCreate').disabled = $('lbJoin').disabled = true; msg('Không tải được Firebase (kiểm tra mạng). Chơi với bot thì không cần.'); }
+rt = { join: n => window.fbJoin ? window.fbJoin(n) : Promise.reject(new Error('fb')) };
+setTimeout(() => { if (!window.fbJoin) offline(); }, 4000);
+
+function players() {
+  if (!rm) return [];
+  return rm.peers().filter(p => p.kind === 'viewer' && p.presence && p.presence.t && (!p.isMe || p.sameTab))
+    .sort((a, b) => a.presence.t - b.presence.t || (a.peer < b.peer ? -1 : 1)).slice(0, 2);
+}
+const enemy = () => players().find(p => !p.isMe);
+
+async function joinRoom(c) {
+  c = c.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (c.length !== 4) return msg('Mã phòng gồm 4 ký tự.');
+  if (!rt) return msg('Chưa kết nối được phòng online. Thử lại sau vài giây nhé.');
+  msg('Đang vào phòng...');
+  try { rm = await rt.join('pb-' + c); } catch (e) { return msg('Không vào được phòng, thử lại sau nhé.'); }
+  code = c; matchNo = 1; oWins = 0; oLoss = 0; resTxt = ''; mode = 'online'; state = 'wait';
+  rm.presence({ t: Date.now(), rdy: 0, st: 'wait', mn: 0 });
+  offPeers = rm.onPeers(onPeers);
+  msg(''); show('wait'); refreshWait();
+}
+function leaveRoom() {
+  if (offPeers) offPeers(); offPeers = null;
+  if (rm) rm.leave(); rm = null;
+  mode = 'bot'; state = 'lobby'; reset(); show('lobby');
+}
+function onPeers() {
+  if (state === 'play') { if (!enemy()) onlineOver(true, 'Đối thủ đã thoát. '); }
+  else refreshWait();
+}
+function refreshWait() {
+  if (!rm || (state !== 'wait' && state !== 'over')) return;
+  const ps = players(), slot = ps.findIndex(p => p.sameTab), btn = $('wReady');
+  $('wTitle').textContent = 'PHÒNG ' + code.toUpperCase();
+  if (slot < 0 && ps.length === 2) { $('wInfo').textContent = 'Phòng này đã đủ 2 người. Hãy rời phòng và tạo phòng khác.'; btn.disabled = true; return; }
+  const en = ps.find(p => !p.isMe), myRdy = slot >= 0 && ps[slot].presence.rdy === matchNo;
+  btn.disabled = !en || myRdy;
+  btn.textContent = myRdy ? 'ĐÃ SẴN SÀNG' : (resTxt ? 'ĐẤU LẠI' : 'SẴN SÀNG');
+  $('wInfo').textContent = resTxt + (!en ? 'Đang chờ người thứ hai. Gửi mã phòng cho bạn bè, họ nhập mã ở sảnh.' : myRdy ? 'Chờ đối thủ sẵn sàng...' : 'Đủ 2 người! Bấm nút để bắt đầu.');
+  if (en && myRdy && en.presence.rdy === matchNo) startOnline(slot);
+}
+function startOnline(slot) {
+  mode = 'online'; reset();
+  if (slot === 1) {
+    Object.assign(P, { x: WW - 300, color: '#4fa3ff', hat: '#1c5fb8', fx: -1 });
+    Object.assign(B, { x: 300, color: '#ff5a4f', hat: '#b3261e', fx: 1 });
+  }
+  const e = enemy(); lastSn = (e && e.presence.sn) || 0; seen = new Set(); acks = [];
+  state = 'play'; show(null);
+  rm.presence({ st: 'play', mn: matchNo, hp: 100, fb: [], ak: [], x: P.x, y: P.y, fx: P.fx, fy: 0, sn: net.slapN });
+  beep(440, 0.15, 'triangle', 0.06);
+}
+function onlineOver(won, why) {
+  if (state === 'over') return;
+  state = 'over'; won ? oWins++ : oLoss++;
+  resTxt = (why || '') + (won ? '🏆 Bạn thắng! ' : '💀 Bạn thua! ') + 'Tỉ số ' + oWins + '-' + oLoss + '. ';
+  matchNo++;
+  if (rm) rm.presence({ st: 'over', hp: P.hp, rdy: 0 });
+  beep(won ? 880 : 120, 0.5, 'triangle', 0.1);
+  show('wait'); refreshWait();
+}
+function netStep(dt) {
+  const e = enemy();
+  if (e && e.presence.mn === matchNo && typeof e.presence.x === 'number') {
+    const s = e.presence, k = Math.min(1, dt * 20);
+    B.x += (s.x - B.x) * k; B.y += (s.y - B.y) * k; B.fx = s.fx; B.fy = s.fy; B.hp = s.hp;
+    if (s.sn > lastSn) {
+      lastSn = s.sn; B.swing = 0.18; beep(500, 0.08, 'triangle', 0.06);
+      const [nx, ny, d] = norm(P.x - B.x, P.y - B.y);
+      if (d < 90) hit(P, 8, nx, ny, 420, SLAP_WORDS[Math.random() * SLAP_WORDS.length | 0], '#ffc94a');
+    }
+    efb = [];
+    for (const f of s.fb || []) {
+      efb.push({ x: f[1], y: f[2] });
+      if (!seen.has(f[0]) && Math.hypot(P.x - f[1], P.y - f[2]) < 30) {
+        seen.add(f[0]); acks = acks.concat(f[0]).slice(-6);
+        const [nx, ny] = norm(f[3], f[4]);
+        hit(P, 18, nx, ny, 560, FIRE_WORDS[Math.random() * FIRE_WORDS.length | 0], '#ff8a3d');
+        burst(f[1], f[2], '#ffd36b', 22);
+      }
+    }
+    if (s.ak && s.ak.length) fireballs = fireballs.filter(f => !s.ak.includes(f.id) || (burst(f.x, f.y, '#ffd36b', 22), false));
+  }
+  B.swing -= dt; B.flash -= dt;
+  if (rm) rm.presence({ st: 'play', mn: matchNo, x: Math.round(P.x), y: Math.round(P.y), fx: +P.fx.toFixed(2), fy: +P.fy.toFixed(2), hp: P.hp, sn: net.slapN, ak: acks,
+    fb: fireballs.map(f => [f.id, Math.round(f.x), Math.round(f.y), Math.round(f.vx), Math.round(f.vy)]) });
+}
+
+$('lbBot').onclick = () => startGame();
+$('lbCreate').onclick = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let c = ''; for (let i = 0; i < 4; i++) c += a[Math.random() * a.length | 0]; joinRoom(c); };
+$('lbJoin').onclick = () => joinRoom($('codeIn').value);
+$('wReady').onclick = () => { if (rm) rm.presence({ rdy: matchNo }); refreshWait(); };
+$('wLeave').onclick = leaveRoom;
+$('menuLobby').onclick = () => { state = 'lobby'; show('lobby'); };
+
+reset();
+requestAnimationFrame(loop);
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, remove, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCnf211JJoVx-t91gYpj1w742vSoDRm_r0",
+  authDomain: "code-9b836.firebaseapp.com",
+  databaseURL: "https://code-9b836-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "code-9b836",
+  storageBucket: "code-9b836.firebasestorage.app",
+  messagingSenderId: "225486517881",
+  appId: "1:225486517881:web:24f454d5ac21d600d706a8"
+});
+const db = getDatabase(app);
+const me = Math.random().toString(36).slice(2, 10);
+window.fbJoin = async function (name) {
+  const base = 'rooms/' + name + '/peers';
+  const mine = ref(db, base + '/' + me);
+  let local = {}, others = [], subs = [], lastSend = 0, timer = null, alive = true;
+  onDisconnect(mine).remove();
+  const flush = () => { timer = null; lastSend = Date.now(); if (alive) set(mine, local).catch(() => {}); };
+  const off = onValue(ref(db, base), snap => {
+    const v = snap.val() || {};
+    others = Object.keys(v).filter(k => k !== me).map(k => ({ peer: k, kind: 'viewer', presence: v[k], isMe: false, sameTab: false }));
+    subs.forEach(f => f());
+  });
+  return {
+    presence(patch) {
+      Object.assign(local, patch);
+      const wait = 50 - (Date.now() - lastSend);
+      if (wait <= 0) flush(); else if (!timer) timer = setTimeout(flush, wait);
+    },
+    peers() { return others.concat([{ peer: me, kind: 'viewer', presence: local, isMe: true, sameTab: true }]); },
+    onPeers(f) { subs.push(f); return () => { subs = subs.filter(x => x !== f); }; },
+    leave() { alive = false; if (timer) clearTimeout(timer); off(); remove(mine).catch(() => {}); }
+  };
+};
+</script>
+</body>
+</html>
